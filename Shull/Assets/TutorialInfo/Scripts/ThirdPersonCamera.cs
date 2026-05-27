@@ -9,6 +9,18 @@ public class ThirdPersonCamera : MonoBehaviour
 
     private Vector3 currentVelocity;
 
+    private void Start()
+    {
+        if (target == null)
+        {
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null)
+            {
+                target = player.transform;
+            }
+        }
+    }
+
     private void LateUpdate()
     {
         if (target == null)

@@ -12,8 +12,12 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private string isCrouchingParam = "IsCrouching";
     [SerializeField] private string attackTriggerParam = "Attack";
 
+    [Header("Physics")]
+    [SerializeField] private float gravity = -20f;
+
     private Animator animator;
     private CharacterController characterController;
+    private float verticalVelocity;
 
     private void Awake()
     {
@@ -41,7 +45,14 @@ public class PlayerMovement : MonoBehaviour
 
         if (characterController != null)
         {
-            characterController.Move(worldMove * Time.deltaTime);
+            if (characterController.isGrounded && verticalVelocity < 0f)
+            {
+                verticalVelocity = -2f;
+            }
+
+            verticalVelocity += gravity * Time.deltaTime;
+            Vector3 velocity = worldMove + Vector3.up * verticalVelocity;
+            characterController.Move(velocity * Time.deltaTime);
         }
         else
         {
@@ -49,15 +60,35 @@ public class PlayerMovement : MonoBehaviour
         }
 
         bool isMoving = moveDirection.sqrMagnitude > 0.01f;
-        animator.SetBool(isMovingParam, isMoving);
-        animator.SetBool(isCrouchingParam, isCrouching);
+        SetAnimatorBool(isMovingParam, isMoving);
+        SetAnimatorBool(isCrouchingParam, isCrouching);
     }
 
     private void HandleAttack()
     {
         if (Input.GetMouseButtonDown(0))
         {
-            animator.SetTrigger(attackTriggerParam);
+            SetAnimatorTrigger(attackTriggerParam);
         }
+    }
+
+    private void SetAnimatorBool(string parameterName, bool value)
+    {
+        if (animator == null || animator.runtimeAnimatorController == null)
+        {
+            return;
+        }
+
+        animator.SetBool(parameterName, value);
+    }
+
+    private void SetAnimatorTrigger(string parameterName)
+    {
+        if (animator == null || animator.runtimeAnimatorController == null)
+        {
+            return;
+        }
+
+        animator.SetTrigger(parameterName);
     }
 }
