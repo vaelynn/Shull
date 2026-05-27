@@ -3,106 +3,109 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
+[InitializeOnLoad]
 public static class DemoSceneSetup
 {
     private const string PlayerModelPath = "Assets/Scenes/SHULL - ASSETS/player/model/xander.fbx";
+    private const string SampleScenePath = "Assets/Scenes/SampleScene.unity";
 
-    [MenuItem("Shull/Setup Game Demo Scene")]
-    public static void SetupGameDemoScene()
+    static DemoSceneSetup()
     {
-        EnsureGround();
-        GameObject player = EnsurePlayer();
-        EnsureCamera(player.transform);
-
-        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
-        Selection.activeGameObject = player;
-
-        Debug.Log("Shull demo scene ready: press Play. Use WASD, Shift (crouch), Left Click (attack).");
+        EditorSceneManager.sceneOpened += OnSceneOpened;
     }
 
-    private static void EnsureGround()
+    private static void OnSceneOpened(Scene scene, OpenSceneMode mode)
     {
-        if (GameObject.Find("Ground") != null)
+        if (!scene.path.Replace('\\', '/').EndsWith(SampleScenePath))
         {
             return;
         }
 
-        GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
-        ground.name = "Ground";
-        ground.transform.position = Vector3.zero;
-        ground.transform.localScale = new Vector3(5f, 1f, 5f);
+        EditorApplication.delayCall += PlaceXanderIfMissing;
     }
 
-    private static GameObject EnsurePlayer()
+    [MenuItem("Shull/Place Xander on Terrain")]
+    public static void PlaceXanderOnTerrainMenu()
     {
-        GameObject existing = GameObject.Find("Player");
-        if (existing != null)
+        PlaceXanderIfMissing(force: true);
+    }
+
+    private static void PlaceXanderIfMissing()
+    {
+        PlaceXanderIfMissing(force: false);
+    }
+
+    private static void PlaceXanderIfMissing(bool force)
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode)
         {
-            return existing;
+            return;
+        }
+
+        if (!force && FindXander() != null)
+        {
+            return;
+        }
+
+        if (force && FindXander() != null)
+        {
+            Selection.activeGameObject = FindXander();
+            SceneView.lastActiveSceneView?.FrameSelected();
+            Debug.Log("xander is already in the scene.");
+            return;
         }
 
         GameObject modelAsset = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerModelPath);
         if (modelAsset == null)
         {
             Debug.LogError("Could not find xander.fbx at: " + PlayerModelPath);
-            return new GameObject("Player");
-        }
-
-        GameObject player = (GameObject)PrefabUtility.InstantiatePrefab(modelAsset);
-        player.name = "Player";
-        player.tag = "Player";
-        player.transform.position = new Vector3(0f, 0f, 0f);
-
-        if (player.GetComponent<CharacterController>() == null)
-        {
-            CharacterController controller = player.AddComponent<CharacterController>();
-            controller.height = 1.8f;
-            controller.radius = 0.35f;
-            controller.center = new Vector3(0f, 0.9f, 0f);
-        }
-
-        if (player.GetComponent<Animator>() == null)
-        {
-            player.AddComponent<Animator>();
-        }
-
-        if (player.GetComponent<AutoScaleToHeight>() == null)
-        {
-            player.AddComponent<AutoScaleToHeight>();
-        }
-
-        if (player.GetComponent<PlayerMovement>() == null)
-        {
-            player.AddComponent<PlayerMovement>();
-        }
-
-        return player;
-    }
-
-    private static void EnsureCamera(Transform playerTarget)
-    {
-        Camera mainCamera = Camera.main;
-        if (mainCamera == null)
-        {
-            Debug.LogWarning("No Main Camera found in scene.");
             return;
         }
 
-        ThirdPersonCamera thirdPersonCamera = mainCamera.GetComponent<ThirdPersonCamera>();
-        if (thirdPersonCamera == null)
+        GameObject xander = (GameObject)PrefabUtility.InstantiatePrefab(modelAsset);
+        xander.name = "xander";
+        xander.transform.position = GetTerrainSpawnPosition();
+        xander.transform.rotation = Quaternion.identity;
+
+        AutoScaleToHeight autoScale = xander.GetComponent<AutoScaleToHeight>();
+        if (autoScale == null)
         {
-            thirdPersonCamera = mainCamera.gameObject.AddComponent<ThirdPersonCamera>();
+            autoScale = xander.AddComponent<AutoScaleToHeight>();
         }
 
-        SerializedObject serializedCamera = new SerializedObject(thirdPersonCamera);
-        SerializedProperty targetProperty = serializedCamera.FindProperty("target");
-        if (targetProperty != null)
+        autoScale.ApplyScale();
+
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        Selection.activeGameObject = xander;
+        SceneView.lastActiveSceneView?.FrameSelected();
+
+        Debug.Log("Placed xander on terrain at " + xander.transform.position);
+    }
+
+    private static GameObject FindXander()
+    {
+        GameObject byName = GameObject.Find("xander");
+        if (byName != null)
         {
-            targetProperty.objectReferenceValue = playerTarget;
-            serializedCamera.ApplyModifiedPropertiesWithoutUndo();
+            return byName;
         }
 
-        mainCamera.transform.position = playerTarget.position + new Vector3(0f, 2f, -4f);
-        mainCamera.transform.LookAt(playerTarget.position + Vector3.up * 1.4f);
+        return GameObject.Find("Player");
+    }
+
+    private static Vector3 GetTerrainSpawnPosition()
+    {
+        Terrain terrain = Object.FindObjectOfType<Terrain>();
+        if (terrain == null)
+        {
+            return new Vector3(0f, 0f, 0f);
+        }
+
+        Vector3 terrainPosition = terrain.transform.position;
+        Vector3 terrainSize = terrain.terrainData.size;
+        Vector3 center = terrainPosition + new Vector3(terrainSize.x * 0.5f, 0f, terrainSize.z * 0.5f);
+        center.y = terrain.SampleHeight(center) + terrainPosition.y;
+
+        return center;
     }
 }
