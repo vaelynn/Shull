@@ -19,6 +19,8 @@ public static class GameViewBootstrap
             return;
         }
 
+        EnsurePlayerComponents(target.gameObject);
+
         ThirdPersonCamera follow = mainCamera.GetComponent<ThirdPersonCamera>();
         if (follow == null)
         {
@@ -118,6 +120,33 @@ public static class GameViewBootstrap
         if (renderer != null)
         {
             renderer.material.color = Color.yellow;
+        }
+    }
+
+    private static void EnsurePlayerComponents(GameObject targetObject)
+    {
+        if (!targetObject.CompareTag("Player"))
+        {
+            targetObject.tag = "Player";
+        }
+
+        CharacterController controller = targetObject.GetComponent<CharacterController>();
+        if (controller == null)
+        {
+            controller = targetObject.AddComponent<CharacterController>();
+            controller.height = 1.8f;
+            controller.radius = 0.35f;
+            controller.center = new Vector3(0f, 0.9f, 0f);
+        }
+
+        if (targetObject.GetComponent<PlayerMovement>() == null)
+        {
+            targetObject.AddComponent<PlayerMovement>();
+        }
+
+        if (targetObject.GetComponent<AutoScaleToHeight>() == null)
+        {
+            targetObject.AddComponent<AutoScaleToHeight>();
         }
     }
 }
