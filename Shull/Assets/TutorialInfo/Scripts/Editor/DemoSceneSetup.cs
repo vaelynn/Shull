@@ -34,6 +34,7 @@ public static class DemoSceneSetup
 
             if (xander != null)
             {
+                EnsureXanderComponents(xander);
                 EnsureCameraTargetsXander(xander.transform);
             }
         };
@@ -47,8 +48,26 @@ public static class DemoSceneSetup
         GameObject xander = FindXander();
         if (xander != null)
         {
+            EnsureXanderComponents(xander);
             EnsureCameraTargetsXander(xander.transform);
         }
+    }
+
+    [MenuItem("Shull/Configure Xander Components")]
+    public static void ConfigureXanderComponentsMenu()
+    {
+        GameObject xander = FindXander();
+        if (xander == null)
+        {
+            Debug.LogWarning("No xander/player found in current scene.");
+            return;
+        }
+
+        EnsureXanderComponents(xander);
+        EnsureCameraTargetsXander(xander.transform);
+        Selection.activeGameObject = xander;
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        Debug.Log("Configured xander with CharacterController and PlayerMovement.");
     }
 
     [MenuItem("Shull/Create Default Terrain")]
@@ -78,7 +97,10 @@ public static class DemoSceneSetup
 
         if (force && FindXander() != null)
         {
-            Selection.activeGameObject = FindXander();
+            GameObject existing = FindXander();
+            EnsureXanderComponents(existing);
+            EnsureCameraTargetsXander(existing.transform);
+            Selection.activeGameObject = existing;
             SceneView.lastActiveSceneView?.FrameSelected();
             Debug.Log("xander is already in the scene.");
             return;
@@ -103,6 +125,7 @@ public static class DemoSceneSetup
         }
 
         autoScale.ApplyScale();
+        EnsureXanderComponents(xander);
 
         EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
         Selection.activeGameObject = xander;
@@ -110,6 +133,32 @@ public static class DemoSceneSetup
         EnsureCameraTargetsXander(xander.transform);
 
         Debug.Log("Placed xander on terrain at " + xander.transform.position);
+    }
+
+    private static void EnsureXanderComponents(GameObject xander)
+    {
+        if (!xander.CompareTag("Player"))
+        {
+            xander.tag = "Player";
+        }
+
+        if (xander.GetComponent<CharacterController>() == null)
+        {
+            CharacterController controller = xander.AddComponent<CharacterController>();
+            controller.height = 1.8f;
+            controller.radius = 0.35f;
+            controller.center = new Vector3(0f, 0.9f, 0f);
+        }
+
+        if (xander.GetComponent<PlayerMovement>() == null)
+        {
+            xander.AddComponent<PlayerMovement>();
+        }
+
+        if (xander.GetComponent<AutoScaleToHeight>() == null)
+        {
+            xander.AddComponent<AutoScaleToHeight>();
+        }
     }
 
     private static void EnsureCameraTargetsXander(Transform xander)

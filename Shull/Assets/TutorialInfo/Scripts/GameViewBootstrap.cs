@@ -19,7 +19,8 @@ public static class GameViewBootstrap
             return;
         }
 
-        EnsurePlayerComponents(target.gameObject);
+        Transform rootTarget = target.root;
+        EnsurePlayerComponents(rootTarget.gameObject);
 
         ThirdPersonCamera follow = mainCamera.GetComponent<ThirdPersonCamera>();
         if (follow == null)
@@ -27,9 +28,9 @@ public static class GameViewBootstrap
             follow = mainCamera.gameObject.AddComponent<ThirdPersonCamera>();
         }
 
-        follow.SetTarget(target);
+        follow.SetTarget(rootTarget);
 
-        Bounds targetBounds = GetTargetBounds(target);
+        Bounds targetBounds = GetTargetBounds(rootTarget);
         SpawnTargetMarker(targetBounds.center + Vector3.up * targetBounds.extents.y);
 
         float viewDistance = Mathf.Max(6f, targetBounds.extents.magnitude * 3f);
@@ -40,7 +41,7 @@ public static class GameViewBootstrap
         mainCamera.farClipPlane = 5000f;
         mainCamera.transform.position = cameraPosition;
         mainCamera.transform.LookAt(lookPoint);
-        Debug.Log("GameViewBootstrap: Camera locked to target " + target.name + " at distance " + viewDistance);
+        Debug.Log("GameViewBootstrap: Camera locked to target " + rootTarget.name + " at distance " + viewDistance);
     }
 
     private static Transform FindXanderLikeTarget()
