@@ -22,7 +22,21 @@ public static class DemoSceneSetup
             return;
         }
 
-        EditorApplication.delayCall += PlaceXanderIfMissing;
+        EditorApplication.delayCall += () =>
+        {
+            EnsureDefaultTerrain();
+            GameObject xander = FindXander();
+            if (xander == null)
+            {
+                PlaceXanderIfMissing();
+                xander = FindXander();
+            }
+
+            if (xander != null)
+            {
+                EnsureCameraTargetsXander(xander.transform);
+            }
+        };
     }
 
     [MenuItem("Shull/Place Xander on Terrain")]
@@ -30,6 +44,11 @@ public static class DemoSceneSetup
     {
         EnsureDefaultTerrain();
         PlaceXanderIfMissing(force: true);
+        GameObject xander = FindXander();
+        if (xander != null)
+        {
+            EnsureCameraTargetsXander(xander.transform);
+        }
     }
 
     [MenuItem("Shull/Create Default Terrain")]
@@ -88,8 +107,36 @@ public static class DemoSceneSetup
         EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
         Selection.activeGameObject = xander;
         SceneView.lastActiveSceneView?.FrameSelected();
+        EnsureCameraTargetsXander(xander.transform);
 
         Debug.Log("Placed xander on terrain at " + xander.transform.position);
+    }
+
+    private static void EnsureCameraTargetsXander(Transform xander)
+    {
+        Camera mainCamera = Camera.main;
+        if (mainCamera == null)
+        {
+            return;
+        }
+
+        ThirdPersonCamera cameraFollow = mainCamera.GetComponent<ThirdPersonCamera>();
+        if (cameraFollow == null)
+        {
+            cameraFollow = mainCamera.gameObject.AddComponent<ThirdPersonCamera>();
+        }
+
+        SerializedObject serializedCameraFollow = new SerializedObject(cameraFollow);
+        SerializedProperty targetProperty = serializedCameraFollow.FindProperty("target");
+        if (targetProperty != null)
+        {
+            targetProperty.objectReferenceValue = xander;
+            serializedCameraFollow.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        mainCamera.transform.position = xander.position + new Vector3(0f, 2f, -5f);
+        mainCamera.transform.rotation = Quaternion.LookRotation((xander.position + Vector3.up * 1.4f) - mainCamera.transform.position);
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
     }
 
     private static void EnsureDefaultTerrain(bool forceFocus = false)
