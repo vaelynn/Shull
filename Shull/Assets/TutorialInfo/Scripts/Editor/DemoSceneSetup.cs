@@ -8,6 +8,7 @@ public static class DemoSceneSetup
 {
     private const string PlayerModelPath = "Assets/Scenes/SHULL - ASSETS/player/model/xander.fbx";
     private const string SampleScenePath = "Assets/Scenes/SampleScene.unity";
+    private const string TerrainDataPath = "Assets/Scenes/SampleTerrain.asset";
 
     static DemoSceneSetup()
     {
@@ -27,7 +28,14 @@ public static class DemoSceneSetup
     [MenuItem("Shull/Place Xander on Terrain")]
     public static void PlaceXanderOnTerrainMenu()
     {
+        EnsureDefaultTerrain();
         PlaceXanderIfMissing(force: true);
+    }
+
+    [MenuItem("Shull/Create Default Terrain")]
+    public static void CreateDefaultTerrainMenu()
+    {
+        EnsureDefaultTerrain(forceFocus: true);
     }
 
     private static void PlaceXanderIfMissing()
@@ -41,6 +49,8 @@ public static class DemoSceneSetup
         {
             return;
         }
+
+        EnsureDefaultTerrain();
 
         if (!force && FindXander() != null)
         {
@@ -80,6 +90,45 @@ public static class DemoSceneSetup
         SceneView.lastActiveSceneView?.FrameSelected();
 
         Debug.Log("Placed xander on terrain at " + xander.transform.position);
+    }
+
+    private static void EnsureDefaultTerrain(bool forceFocus = false)
+    {
+        Terrain existingTerrain = Object.FindObjectOfType<Terrain>();
+        if (existingTerrain != null)
+        {
+            if (forceFocus)
+            {
+                Selection.activeGameObject = existingTerrain.gameObject;
+                SceneView.lastActiveSceneView?.FrameSelected();
+            }
+            return;
+        }
+
+        TerrainData terrainData = AssetDatabase.LoadAssetAtPath<TerrainData>(TerrainDataPath);
+        if (terrainData == null)
+        {
+            terrainData = new TerrainData
+            {
+                heightmapResolution = 513
+            };
+            terrainData.size = new Vector3(500f, 50f, 500f);
+            AssetDatabase.CreateAsset(terrainData, TerrainDataPath);
+            AssetDatabase.SaveAssets();
+        }
+
+        GameObject terrainObject = Terrain.CreateTerrainGameObject(terrainData);
+        terrainObject.name = "Terrain";
+        terrainObject.transform.position = Vector3.zero;
+
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        if (forceFocus)
+        {
+            Selection.activeGameObject = terrainObject;
+            SceneView.lastActiveSceneView?.FrameSelected();
+        }
+
+        Debug.Log("Created default terrain in SampleScene.");
     }
 
     private static GameObject FindXander()
