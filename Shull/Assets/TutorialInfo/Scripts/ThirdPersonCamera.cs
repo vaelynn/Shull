@@ -10,11 +10,13 @@ public class ThirdPersonCamera : MonoBehaviour
     [SerializeField] private float pitch = 20f;
     [SerializeField] private float minPitch = -10f;
     [SerializeField] private float maxPitch = 80f;
-    [SerializeField] private float rotateSensitivity = 2.5f;
+    [SerializeField] private float rotateSensitivity = 0.2f;
+    [SerializeField] private bool lockCursorWhileRotating;
 
     private Vector3 currentVelocity;
     private float yaw;
     private bool isRotating;
+    private Vector3 lastMousePosition;
 
     private void Start()
     {
@@ -56,15 +58,22 @@ public class ThirdPersonCamera : MonoBehaviour
         if (Input.GetMouseButtonDown(1))
         {
             isRotating = true;
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+            lastMousePosition = Input.mousePosition;
+            if (lockCursorWhileRotating)
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+            }
         }
 
         if (Input.GetMouseButtonUp(1))
         {
             isRotating = false;
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
+            if (lockCursorWhileRotating)
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
         }
 
         if (!isRotating)
@@ -72,11 +81,12 @@ public class ThirdPersonCamera : MonoBehaviour
             return;
         }
 
-        float mouseX = Input.GetAxisRaw("Mouse X");
-        float mouseY = Input.GetAxisRaw("Mouse Y");
+        Vector3 mousePosition = Input.mousePosition;
+        Vector3 delta = mousePosition - lastMousePosition;
+        lastMousePosition = mousePosition;
 
-        yaw += mouseX * rotateSensitivity;
-        pitch -= mouseY * rotateSensitivity;
+        yaw += delta.x * rotateSensitivity;
+        pitch -= delta.y * rotateSensitivity;
         pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
     }
 
