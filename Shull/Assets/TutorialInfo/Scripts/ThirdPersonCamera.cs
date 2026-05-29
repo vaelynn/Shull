@@ -20,6 +20,7 @@ public class ThirdPersonCamera : MonoBehaviour
     private bool isRotating;
     private Vector3 lastMousePosition;
     private Vector3 followOffsetWorld;
+    private Quaternion followRotationWorld;
 
     private void Awake()
     {
@@ -62,6 +63,12 @@ public class ThirdPersonCamera : MonoBehaviour
         {
             Vector3 lookPoint = target.position + Vector3.up * lookAtHeight;
             transform.LookAt(lookPoint);
+            followOffsetWorld = transform.position - target.position;
+            followRotationWorld = transform.rotation;
+        }
+        else
+        {
+            transform.rotation = followRotationWorld;
         }
     }
 
@@ -196,10 +203,12 @@ public class ThirdPersonCamera : MonoBehaviour
             yaw = transform.eulerAngles.y;
             pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
             followOffsetWorld = Vector3.zero;
+            followRotationWorld = transform.rotation;
             return;
         }
 
         followOffsetWorld = transform.position - target.position;
+        followRotationWorld = transform.rotation;
         float planar = new Vector2(followOffsetWorld.x, followOffsetWorld.z).magnitude;
         if (followOffsetWorld.sqrMagnitude > 0.0001f)
         {
