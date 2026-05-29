@@ -270,9 +270,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ThirdPersonCamera
   target: {fileID: 1200000002}
-  offset: {x: 0, y: 2, z: -4}
   followSmoothTime: 0.1
   lookAtHeight: 1.4
+  orbitRadius: 6
+  pitch: 20
+  minPitch: -10
+  maxPitch: 80
+  rotateSensitivity: 2.5
+  lockCursorWhileRotating: 0
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -654,6 +659,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: d9a2713d982cb8f4995184ff46f28539, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1200000004}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: d9a2713d982cb8f4995184ff46f28539, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1200000008}
   m_SourcePrefab: {fileID: 100100000, guid: d9a2713d982cb8f4995184ff46f28539, type: 3}
 --- !u!4 &1200000002 stripped
 Transform:
@@ -672,7 +680,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1200000003}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5d8a2c4d649d2704e8fbd21a02fa3796, type: 3}
   m_Name: 
@@ -691,12 +699,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 897d4df68ae30a841b551f00a3cda2b7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement
-  walkSpeed: 3.5
-  crouchSpeed: 1.75
-  isMovingParam: IsMoving
-  isCrouchingParam: IsCrouching
-  attackTriggerParam: Attack
+  moveSpeed: 3.5
+  turnSpeed: 540
   gravity: -20
+  groundSnapProbeHeight: 2
+  groundSnapMaxDistance: 10
+  groundSnapPadding: 0.02
+  autoFitCharacterController: 1
+  controllerHeightPadding: 0.05
+  snapArrivalThreshold: 1
 --- !u!95 &1200000006
 Animator:
   serializedVersion: 7
@@ -744,6 +755,29 @@ CharacterController:
   m_SkinWidth: 0.08
   m_MinMoveDistance: 0.001
   m_Center: {x: 0, y: 0.9, z: 0}
+--- !u!136 &1200000008
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1200000003}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 1
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 1
+  m_Height: 5
+  m_Direction: 1
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
