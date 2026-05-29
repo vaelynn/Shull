@@ -17,6 +17,7 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float controllerHeightPadding = 0.05f;
 
     [SerializeField] private float snapArrivalThreshold = 1f;
+    [SerializeField] private Vector3 localMoveForwardAxis = Vector3.right;
 
     private CharacterController characterController;
     private float verticalVelocity;
@@ -130,15 +131,6 @@ public class PlayerMovement : MonoBehaviour
         bool leftHeld = moveInput.x < -0.1f;
         bool rightHeld = moveInput.x > 0.1f;
 
-        if (moveInput.y > 0.1f)
-        {
-            SetSnapTarget(0f);
-        }
-        else if (moveInput.y < -0.1f)
-        {
-            SetSnapTarget(180f);
-        }
-
         if (leftHeld && !prevLeftHeld)
         {
             SetSnapTarget(targetYaw - 90f);
@@ -147,57 +139,27 @@ public class PlayerMovement : MonoBehaviour
         {
             SetSnapTarget(targetYaw + 90f);
         }
-        else if (leftHeld && snapping && SnapArrived())
-        {
-            snapping = false;
-        }
-        else if (rightHeld && snapping && SnapArrived())
-        {
-            snapping = false;
-        }
-
-        if (!snapping)
-        {
-            if (leftHeld)
-            {
-                float delta = -turnSpeed * Time.deltaTime;
-                targetYaw += delta;
-                transform.Rotate(0f, delta, 0f, Space.World);
-            }
-            else if (rightHeld)
-            {
-                float delta = turnSpeed * Time.deltaTime;
-                targetYaw += delta;
-                transform.Rotate(0f, delta, 0f, Space.World);
-            }
-        }
 
         if (snapping)
         {
             ApplySnapRotation();
         }
+        else
+        {
+            targetYaw = NormaliseAngle(transform.eulerAngles.y);
+        }
 
         prevLeftHeld = leftHeld;
         prevRightHeld = rightHeld;
 
-        Vector3 flatForward = transform.forward;
+        Vector3 flatForward = transform.TransformDirection(localMoveForwardAxis);
         flatForward.y = 0f;
-        if (flatForward.sqrMagnitude > 0.0001f) flatForward.Normalize();
-
-        float forwardInput = Mathf.Abs(moveInput.y) > 0.0001f ? Mathf.Sign(moveInput.y) : 0f;
-
-        bool moving = Mathf.Abs(moveInput.y) > 0.0001f
-                   || Mathf.Abs(moveInput.x) > 0.0001f;
-
-        Vector3 moveDir = Vector3.zero;
-        if (Mathf.Abs(moveInput.y) > 0.0001f)
+        if (flatForward.sqrMagnitude > 0.0001f)
         {
-            moveDir = flatForward * forwardInput;
+            flatForward.Normalize();
         }
-        else if (moving)
-        {
-            moveDir = flatForward;
-        }
+
+        Vector3 moveDir = flatForward * moveInput.y;
 
         if (characterController.isGrounded && verticalVelocity < 0f)
         {

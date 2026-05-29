@@ -22,13 +22,7 @@ public static class GameViewBootstrap
         Transform rootTarget = target.root;
         EnsurePlayerComponents(rootTarget.gameObject);
 
-        ThirdPersonCamera follow = mainCamera.GetComponent<ThirdPersonCamera>();
-        if (follow == null)
-        {
-            follow = mainCamera.gameObject.AddComponent<ThirdPersonCamera>();
-        }
-
-        follow.SetTarget(rootTarget);
+        Camera followCamera = EnsureFixedFollowCamera(mainCamera, rootTarget);
 
         Bounds targetBounds = GetTargetBounds(rootTarget);
         SpawnTargetMarker(targetBounds.center + Vector3.up * targetBounds.extents.y);
@@ -37,11 +31,129 @@ public static class GameViewBootstrap
         Vector3 lookPoint = targetBounds.center + Vector3.up * (targetBounds.extents.y * 0.4f);
         Vector3 cameraPosition = lookPoint + new Vector3(0f, targetBounds.extents.y * 0.8f, -viewDistance);
 
-        mainCamera.nearClipPlane = 0.01f;
-        mainCamera.farClipPlane = 5000f;
-        mainCamera.transform.position = cameraPosition;
-        mainCamera.transform.LookAt(lookPoint);
+        if (followCamera != null)
+        {
+            followCamera.nearClipPlane = 0.01f;
+            followCamera.farClipPlane = 5000f;
+        }
+
         Debug.Log("GameViewBootstrap: Camera locked to target " + rootTarget.name + " at distance " + viewDistance);
+    }
+
+    private static Camera EnsureFixedFollowCamera(Camera existingMainCamera, Transform target)
+    {
+        Camera referenceCamera = FindChildCamera(target);
+        if (referenceCamera == null)
+        {
+            referenceCamera = existingMainCamera;
+        }
+
+        GameObject cameraObject = GameObject.Find("FixedFollowCamera");
+        bool created = false;
+
+        if (cameraObject == null)
+        {
+            cameraObject = new GameObject("FixedFollowCamera");
+            created = true;
+        }
+
+        Camera cameraComponent = cameraObject.GetComponent<Camera>();
+        if (cameraComponent == null)
+        {
+            cameraComponent = cameraObject.AddComponent<Camera>();
+        }
+
+        if (referenceCamera != null)
+        {
+            cameraComponent.CopyFrom(referenceCamera);
+            cameraObject.transform.SetPositionAndRotation(
+                referenceCamera.transform.position,
+                referenceCamera.transform.rotation
+            );
+        }
+
+        FixedDistanceCamera follow = cameraObject.GetComponent<FixedDistanceCamera>();
+        if (follow == null)
+        {
+            follow = cameraObject.AddComponent<FixedDistanceCamera>();
+        }
+
+        follow.SetTarget(target);
+        follow.RebuildOffset();
+
+        if (!cameraObject.CompareTag("MainCamera"))
+        {
+            cameraObject.tag = "MainCamera";
+        }
+
+        DisableOtherCameras(cameraComponent);
+        DisableReferenceCamera(referenceCamera, cameraComponent);
+
+        return cameraComponent;
+    }
+
+    private static Camera FindChildCamera(Transform target)
+    {
+        if (target == null)
+        {
+            return null;
+        }
+
+        Camera[] cameras = target.GetComponentsInChildren<Camera>(true);
+        if (cameras == null || cameras.Length == 0)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < cameras.Length; i++)
+        {
+            if (cameras[i] != null)
+            {
+                return cameras[i];
+            }
+        }
+
+        return null;
+    }
+
+    private static void DisableReferenceCamera(Camera reference, Camera keep)
+    {
+        if (reference == null || reference == keep)
+        {
+            return;
+        }
+
+        reference.enabled = false;
+        if (reference.CompareTag("MainCamera"))
+        {
+            reference.tag = "Untagged";
+        }
+    }
+
+    private static void DisableOtherCameras(Camera keep)
+    {
+        Camera[] cameras = Object.FindObjectsOfType<Camera>(true);
+        foreach (Camera cam in cameras)
+        {
+            if (cam == null || cam == keep)
+            {
+                continue;
+            }
+
+            cam.enabled = false;
+        }
+
+        AudioListener[] listeners = Object.FindObjectsOfType<AudioListener>(true);
+        foreach (AudioListener listener in listeners)
+        {
+            if (listener == null)
+            {
+                continue;
+            }
+
+            bool keepListener = keep != null && listener.gameObject == keep.gameObject;
+            listener.enabled = keepListener;
+        }
     }
 
     private static Transform FindXanderLikeTarget()
@@ -139,11 +251,14 @@ public static class GameViewBootstrap
             controller.radius = 0.35f;
             controller.center = new Vector3(0f, 0.9f, 0f);
         }
+        controller.enabled = true;
 
-        if (targetObject.GetComponent<PlayerMovement>() == null)
+        PlayerMovement movement = targetObject.GetComponent<PlayerMovement>();
+        if (movement == null)
         {
-            targetObject.AddComponent<PlayerMovement>();
+            movement = targetObject.AddComponent<PlayerMovement>();
         }
+        movement.enabled = true;
 
         AutoScaleToHeight autoScale = targetObject.GetComponent<AutoScaleToHeight>();
         if (autoScale != null)
