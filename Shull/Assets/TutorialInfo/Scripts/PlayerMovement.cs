@@ -1,94 +1,68 @@
 using UnityEngine;
 
-[RequireComponent(typeof(Animator))]
+[RequireComponent(typeof(CharacterController))]
 public class PlayerMovement : MonoBehaviour
 {
-    [Header("Movement")]
-    [SerializeField] private float walkSpeed = 3.5f;
-    [SerializeField] private float crouchSpeed = 1.75f;
-
-    [Header("Animation Parameters")]
-    [SerializeField] private string isMovingParam = "IsMoving";
-    [SerializeField] private string isCrouchingParam = "IsCrouching";
-    [SerializeField] private string attackTriggerParam = "Attack";
-
-    [Header("Physics")]
+    [SerializeField] private float moveSpeed = 3.5f;
+    [SerializeField] private float turnSpeed = 540f;
     [SerializeField] private float gravity = -20f;
 
-    private Animator animator;
     private CharacterController characterController;
+    private Transform cameraTransform;
     private float verticalVelocity;
 
     private void Awake()
     {
-        animator = GetComponent<Animator>();
         characterController = GetComponent<CharacterController>();
+        cameraTransform = Camera.main != null ? Camera.main.transform : null;
     }
 
     private void Update()
     {
         HandleMovement();
-        HandleAttack();
     }
 
     private void HandleMovement()
     {
-        float horizontal = Input.GetAxisRaw("Horizontal");
-        float vertical = Input.GetAxisRaw("Vertical");
+        float inputX = Input.GetAxisRaw("Horizontal");
+        float inputZ = Input.GetAxisRaw("Vertical");
 
-        Vector3 input = new Vector3(horizontal, 0f, vertical);
-        Vector3 moveDirection = Vector3.ClampMagnitude(input, 1f);
+        Vector3 input = new Vector3(inputX, 0f, inputZ);
+        Vector3 inputNormalized = Vector3.ClampMagnitude(input, 1f);
 
-        bool isCrouching = Input.GetKey(KeyCode.LeftShift);
-        float currentSpeed = isCrouching ? crouchSpeed : walkSpeed;
-        Vector3 worldMove = transform.TransformDirection(moveDirection) * currentSpeed;
-
-        if (characterController != null)
+        Vector3 moveDirection = inputNormalized;
+        if (cameraTransform != null)
         {
-            if (characterController.isGrounded && verticalVelocity < 0f)
-            {
-                verticalVelocity = -2f;
-            }
+            Vector3 camForward = cameraTransform.forward;
+            camForward.y = 0f;
+            camForward.Normalize();
 
-            verticalVelocity += gravity * Time.deltaTime;
-            Vector3 velocity = worldMove + Vector3.up * verticalVelocity;
-            characterController.Move(velocity * Time.deltaTime);
-        }
-        else
-        {
-            transform.position += worldMove * Time.deltaTime;
+            Vector3 camRight = cameraTransform.right;
+            camRight.y = 0f;
+            camRight.Normalize();
+
+            moveDirection = (camForward * inputNormalized.z + camRight * inputNormalized.x).normalized;
         }
 
-        bool isMoving = moveDirection.sqrMagnitude > 0.01f;
-        SetAnimatorBool(isMovingParam, isMoving);
-        SetAnimatorBool(isCrouchingParam, isCrouching);
-    }
-
-    private void HandleAttack()
-    {
-        if (Input.GetMouseButtonDown(0))
+        if (characterController.isGrounded && verticalVelocity < 0f)
         {
-            SetAnimatorTrigger(attackTriggerParam);
-        }
-    }
-
-    private void SetAnimatorBool(string parameterName, bool value)
-    {
-        if (animator == null || animator.runtimeAnimatorController == null)
-        {
-            return;
+            verticalVelocity = -2f;
         }
 
-        animator.SetBool(parameterName, value);
-    }
+        verticalVelocity += gravity * Time.deltaTime;
 
-    private void SetAnimatorTrigger(string parameterName)
-    {
-        if (animator == null || animator.runtimeAnimatorController == null)
+        Vector3 horizontalVelocity = moveDirection * moveSpeed;
+        Vector3 velocity = horizontalVelocity + Vector3.up * verticalVelocity;
+        characterController.Move(velocity * Time.deltaTime);
+
+        if (moveDirection.sqrMagnitude > 0.0001f)
         {
-            return;
+            Quaternion targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
+            transform.rotation = Quaternion.RotateTowards(
+                transform.rotation,
+                targetRotation,
+                turnSpeed * Time.deltaTime
+            );
         }
-
-        animator.SetTrigger(parameterName);
     }
 }
