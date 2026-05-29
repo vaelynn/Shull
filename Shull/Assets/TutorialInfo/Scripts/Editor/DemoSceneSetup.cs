@@ -59,7 +59,15 @@ public static class DemoSceneSetup
         GameObject xander = FindXander();
         if (xander == null)
         {
-            Debug.LogWarning("No xander/player found in current scene.");
+            EnsureDefaultTerrain();
+            PlaceXanderIfMissing(force: true);
+            xander = FindXander();
+        }
+
+        if (xander == null)
+        {
+            Debug.LogWarning("No xander/player found in current scene even after spawning.");
+            DebugSceneXanderObjects();
             return;
         }
 
@@ -68,6 +76,24 @@ public static class DemoSceneSetup
         Selection.activeGameObject = xander;
         EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
         Debug.Log("Configured xander with CharacterController and PlayerMovement.");
+    }
+
+    [MenuItem("Shull/Debug Log Xander Objects")]
+    public static void DebugSceneXanderObjects()
+    {
+        GameObject[] all = Object.FindObjectsOfType<GameObject>();
+        int count = 0;
+        foreach (GameObject obj in all)
+        {
+            if (obj == null) continue;
+            if (obj.name.ToLowerInvariant().Contains("xander") || obj.CompareTag("Player"))
+            {
+                count++;
+                Debug.Log("Xander candidate: name=" + obj.name + " tag=" + obj.tag + " active=" + obj.activeInHierarchy);
+            }
+        }
+
+        Debug.Log("DebugSceneXanderObjects: candidates=" + count);
     }
 
     [MenuItem("Shull/Create Default Terrain")]
@@ -235,7 +261,24 @@ public static class DemoSceneSetup
             return byName;
         }
 
-        return GameObject.Find("Player");
+        GameObject byTag = GameObject.FindGameObjectWithTag("Player");
+        if (byTag != null)
+        {
+            return byTag;
+        }
+
+        GameObject[] all = Object.FindObjectsOfType<GameObject>();
+        foreach (GameObject obj in all)
+        {
+            if (obj == null) continue;
+            if (obj.name.Equals("xander", System.StringComparison.OrdinalIgnoreCase) ||
+                obj.name.ToLowerInvariant().Contains("xander"))
+            {
+                return obj;
+            }
+        }
+
+        return null;
     }
 
     private static Vector3 GetTerrainSpawnPosition()
