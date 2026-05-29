@@ -1,4 +1,7 @@
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 public class ThirdPersonCamera : MonoBehaviour
 {
@@ -10,8 +13,8 @@ public class ThirdPersonCamera : MonoBehaviour
     [SerializeField] private float pitch = 20f;
     [SerializeField] private float minPitch = -10f;
     [SerializeField] private float maxPitch = 80f;
-    [SerializeField] private float rotateSensitivity = 0.2f;
-    [SerializeField] private bool lockCursorWhileRotating;
+    [SerializeField] private float rotateSensitivity = 0.15f;
+    [SerializeField] private bool lockCursorWhileRotating = true;
 
     private Vector3 currentVelocity;
     private float yaw;
@@ -55,10 +58,29 @@ public class ThirdPersonCamera : MonoBehaviour
 
     private void UpdateRotation()
     {
-        if (Input.GetMouseButtonDown(1))
+        bool rightDown = false;
+        bool rightUp = false;
+        bool rightHeld = false;
+
+#if ENABLE_INPUT_SYSTEM
+        if (Mouse.current != null)
+        {
+            rightDown = Mouse.current.rightButton.wasPressedThisFrame;
+            rightUp = Mouse.current.rightButton.wasReleasedThisFrame;
+            rightHeld = Mouse.current.rightButton.isPressed;
+        }
+#endif
+
+#if ENABLE_LEGACY_INPUT_MANAGER
+        rightDown |= Input.GetMouseButtonDown(1);
+        rightUp |= Input.GetMouseButtonUp(1);
+        rightHeld |= Input.GetMouseButton(1);
+#endif
+
+        if (rightDown)
         {
             isRotating = true;
-            lastMousePosition = Input.mousePosition;
+            lastMousePosition = GetMousePosition();
             if (lockCursorWhileRotating)
             {
                 Cursor.lockState = CursorLockMode.Locked;
@@ -66,7 +88,7 @@ public class ThirdPersonCamera : MonoBehaviour
             }
         }
 
-        if (Input.GetMouseButtonUp(1))
+        if (rightUp)
         {
             isRotating = false;
             if (lockCursorWhileRotating)
@@ -76,18 +98,43 @@ public class ThirdPersonCamera : MonoBehaviour
             }
         }
 
-        if (!isRotating)
+        if (!isRotating || !rightHeld)
         {
             return;
         }
 
-        Vector3 mousePosition = Input.mousePosition;
-        Vector3 delta = mousePosition - lastMousePosition;
-        lastMousePosition = mousePosition;
-
+        Vector2 delta = GetMouseDelta();
         yaw += delta.x * rotateSensitivity;
         pitch -= delta.y * rotateSensitivity;
         pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+    }
+
+    private Vector3 GetMousePosition()
+    {
+#if ENABLE_INPUT_SYSTEM
+        if (Mouse.current != null)
+        {
+            Vector2 pos = Mouse.current.position.ReadValue();
+            return new Vector3(pos.x, pos.y, 0f);
+        }
+#endif
+
+        return Input.mousePosition;
+    }
+
+    private Vector2 GetMouseDelta()
+    {
+#if ENABLE_INPUT_SYSTEM
+        if (Mouse.current != null)
+        {
+            return Mouse.current.delta.ReadValue();
+        }
+#endif
+
+        Vector3 mousePosition = Input.mousePosition;
+        Vector3 delta = mousePosition - lastMousePosition;
+        lastMousePosition = mousePosition;
+        return new Vector2(delta.x, delta.y);
     }
 
     private Vector3 GetDesiredPosition()
