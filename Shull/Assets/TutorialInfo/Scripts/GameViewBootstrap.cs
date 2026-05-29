@@ -145,9 +145,10 @@ public static class GameViewBootstrap
             targetObject.AddComponent<PlayerMovement>();
         }
 
-        if (targetObject.GetComponent<AutoScaleToHeight>() == null)
+        AutoScaleToHeight autoScale = targetObject.GetComponent<AutoScaleToHeight>();
+        if (autoScale != null)
         {
-            targetObject.AddComponent<AutoScaleToHeight>();
+            autoScale.enabled = false;
         }
     }
 }

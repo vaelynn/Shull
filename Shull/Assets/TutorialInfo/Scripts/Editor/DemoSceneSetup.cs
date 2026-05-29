@@ -143,14 +143,6 @@ public static class DemoSceneSetup
         xander.name = "xander";
         xander.transform.position = GetTerrainSpawnPosition();
         xander.transform.rotation = Quaternion.identity;
-
-        AutoScaleToHeight autoScale = xander.GetComponent<AutoScaleToHeight>();
-        if (autoScale == null)
-        {
-            autoScale = xander.AddComponent<AutoScaleToHeight>();
-        }
-
-        autoScale.ApplyScale();
         EnsureXanderComponents(xander);
 
         EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
@@ -179,11 +171,6 @@ public static class DemoSceneSetup
         if (xander.GetComponent<PlayerMovement>() == null)
         {
             xander.AddComponent<PlayerMovement>();
-        }
-
-        if (xander.GetComponent<AutoScaleToHeight>() == null)
-        {
-            xander.AddComponent<AutoScaleToHeight>();
         }
     }
 
