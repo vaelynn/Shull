@@ -16,14 +16,20 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private bool autoFitCharacterController = true;
     [SerializeField] private float controllerHeightPadding = 0.05f;
 
+    [SerializeField] private float snapArrivalThreshold = 1f;
+
     private CharacterController characterController;
-    private Transform cameraTransform;
     private float verticalVelocity;
+
+    private float targetYaw;
+    private bool snapping;
+    private bool prevLeftHeld;
+    private bool prevRightHeld;
 
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
-        cameraTransform = Camera.main != null ? Camera.main.transform : null;
+        targetYaw = transform.eulerAngles.y;
     }
 
     private IEnumerator Start()
@@ -38,25 +44,15 @@ public class PlayerMovement : MonoBehaviour
 
     private void FitCharacterControllerToRenderers()
     {
-        if (characterController == null)
-        {
-            return;
-        }
+        if (characterController == null) return;
 
         Renderer[] renderers = GetComponentsInChildren<Renderer>(true);
-        if (renderers == null || renderers.Length == 0)
-        {
-            return;
-        }
+        if (renderers == null || renderers.Length == 0) return;
 
         Bounds bounds = renderers[0].bounds;
         for (int i = 1; i < renderers.Length; i++)
         {
-            if (renderers[i] == null)
-            {
-                continue;
-            }
-
+            if (renderers[i] == null) continue;
             bounds.Encapsulate(renderers[i].bounds);
         }
 
@@ -64,10 +60,7 @@ public class PlayerMovement : MonoBehaviour
         float scaleX = Mathf.Abs(transform.lossyScale.x);
         float scaleZ = Mathf.Abs(transform.lossyScale.z);
 
-        if (scaleY <= 0.0001f)
-        {
-            return;
-        }
+        if (scaleY <= 0.0001f) return;
 
         float height = Mathf.Max(0.5f, (bounds.size.y / scaleY) + controllerHeightPadding);
         float radiusWorld = Mathf.Max(bounds.extents.x, bounds.extents.z);
@@ -85,28 +78,18 @@ public class PlayerMovement : MonoBehaviour
 
     private void Update()
     {
-        if (cameraTransform == null && Camera.main != null)
-        {
-            cameraTransform = Camera.main.transform;
-        }
-
         HandleMovement();
     }
 
     private void SnapToGround()
     {
-        if (characterController == null)
-        {
-            return;
-        }
+        if (characterController == null) return;
 
         Vector3 origin = transform.position + Vector3.up * groundSnapProbeHeight;
         Ray ray = new Ray(origin, Vector3.down);
 
         if (!TryGetGroundHit(ray, groundSnapProbeHeight + groundSnapMaxDistance, out RaycastHit hit))
-        {
             return;
-        }
 
         float currentBottom = characterController.bounds.min.y;
         float deltaY = (hit.point.y - currentBottom) + groundSnapPadding;
@@ -117,11 +100,7 @@ public class PlayerMovement : MonoBehaviour
     private bool TryGetGroundHit(Ray ray, float maxDistance, out RaycastHit hit)
     {
         RaycastHit[] hits = Physics.RaycastAll(ray, maxDistance, ~0, QueryTriggerInteraction.Ignore);
-        if (hits == null || hits.Length == 0)
-        {
-            hit = default;
-            return false;
-        }
+        if (hits == null || hits.Length == 0) { hit = default; return false; }
 
         float bestDistance = float.MaxValue;
         int bestIndex = -1;
@@ -129,21 +108,9 @@ public class PlayerMovement : MonoBehaviour
         for (int i = 0; i < hits.Length; i++)
         {
             Collider c = hits[i].collider;
-            if (c == null)
-            {
-                continue;
-            }
-
-            if (c == characterController)
-            {
-                continue;
-            }
-
-            if (c.transform != null && c.transform.IsChildOf(transform))
-            {
-                continue;
-            }
-
+            if (c == null) continue;
+            if (c == characterController) continue;
+            if (c.transform != null && c.transform.IsChildOf(transform)) continue;
             if (hits[i].distance < bestDistance)
             {
                 bestDistance = hits[i].distance;
@@ -151,12 +118,7 @@ public class PlayerMovement : MonoBehaviour
             }
         }
 
-        if (bestIndex < 0)
-        {
-            hit = default;
-            return false;
-        }
-
+        if (bestIndex < 0) { hit = default; return false; }
         hit = hits[bestIndex];
         return true;
     }
@@ -165,33 +127,118 @@ public class PlayerMovement : MonoBehaviour
     {
         Vector2 moveInput = GetMoveInput();
 
-        float turnInput = moveInput.x;
-        float forwardInput = moveInput.y;
+        bool leftHeld = moveInput.x < -0.1f;
+        bool rightHeld = moveInput.x > 0.1f;
 
-        if (Mathf.Abs(turnInput) > 0.0001f)
+        if (moveInput.y > 0.1f)
         {
-            transform.Rotate(0f, turnInput * turnSpeed * Time.deltaTime, 0f, Space.World);
+            SetSnapTarget(0f);
         }
+        else if (moveInput.y < -0.1f)
+        {
+            SetSnapTarget(180f);
+        }
+
+        if (leftHeld && !prevLeftHeld)
+        {
+            SetSnapTarget(targetYaw - 90f);
+        }
+        else if (rightHeld && !prevRightHeld)
+        {
+            SetSnapTarget(targetYaw + 90f);
+        }
+        else if (leftHeld && snapping && SnapArrived())
+        {
+            snapping = false;
+        }
+        else if (rightHeld && snapping && SnapArrived())
+        {
+            snapping = false;
+        }
+
+        if (!snapping)
+        {
+            if (leftHeld)
+            {
+                float delta = -turnSpeed * Time.deltaTime;
+                targetYaw += delta;
+                transform.Rotate(0f, delta, 0f, Space.World);
+            }
+            else if (rightHeld)
+            {
+                float delta = turnSpeed * Time.deltaTime;
+                targetYaw += delta;
+                transform.Rotate(0f, delta, 0f, Space.World);
+            }
+        }
+
+        if (snapping)
+        {
+            ApplySnapRotation();
+        }
+
+        prevLeftHeld = leftHeld;
+        prevRightHeld = rightHeld;
 
         Vector3 flatForward = transform.forward;
         flatForward.y = 0f;
-        if (flatForward.sqrMagnitude > 0.0001f)
-        {
-            flatForward.Normalize();
-        }
+        if (flatForward.sqrMagnitude > 0.0001f) flatForward.Normalize();
 
-        Vector3 moveDirection = flatForward * forwardInput;
+        float forwardInput = Mathf.Abs(moveInput.y) > 0.0001f ? Mathf.Sign(moveInput.y) : 0f;
+
+        bool moving = Mathf.Abs(moveInput.y) > 0.0001f
+                   || Mathf.Abs(moveInput.x) > 0.0001f;
+
+        Vector3 moveDir = Vector3.zero;
+        if (Mathf.Abs(moveInput.y) > 0.0001f)
+        {
+            moveDir = flatForward * forwardInput;
+        }
+        else if (moving)
+        {
+            moveDir = flatForward;
+        }
 
         if (characterController.isGrounded && verticalVelocity < 0f)
         {
             verticalVelocity = -2f;
         }
-
         verticalVelocity += gravity * Time.deltaTime;
 
-        Vector3 horizontalVelocity = moveDirection * moveSpeed;
-        Vector3 velocity = horizontalVelocity + Vector3.up * verticalVelocity;
+        Vector3 velocity = moveDir * moveSpeed + Vector3.up * verticalVelocity;
         characterController.Move(velocity * Time.deltaTime);
+    }
+
+    private void SetSnapTarget(float yaw)
+    {
+        targetYaw = NormaliseAngle(yaw);
+        snapping = true;
+    }
+
+    private bool SnapArrived()
+    {
+        float diff = Mathf.Abs(Mathf.DeltaAngle(transform.eulerAngles.y, targetYaw));
+        return diff < snapArrivalThreshold;
+    }
+
+    private void ApplySnapRotation()
+    {
+        float current = transform.eulerAngles.y;
+        float newYaw = Mathf.MoveTowardsAngle(current, targetYaw, turnSpeed * Time.deltaTime);
+        transform.eulerAngles = new Vector3(transform.eulerAngles.x, newYaw, transform.eulerAngles.z);
+
+        if (SnapArrived())
+        {
+            transform.eulerAngles = new Vector3(transform.eulerAngles.x, targetYaw, transform.eulerAngles.z);
+            snapping = false;
+        }
+    }
+
+    private static float NormaliseAngle(float angle)
+    {
+        angle %= 360f;
+        if (angle < 0f) angle += 360f;
+        return angle;
     }
 
     private Vector2 GetMoveInput()
@@ -201,25 +248,10 @@ public class PlayerMovement : MonoBehaviour
 #if ENABLE_INPUT_SYSTEM
         if (Keyboard.current != null)
         {
-            if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed)
-            {
-                input.x -= 1f;
-            }
-
-            if (Keyboard.current.dKey.isPressed || Keyboard.current.rightArrowKey.isPressed)
-            {
-                input.x += 1f;
-            }
-
-            if (Keyboard.current.wKey.isPressed || Keyboard.current.upArrowKey.isPressed)
-            {
-                input.y += 1f;
-            }
-
-            if (Keyboard.current.sKey.isPressed || Keyboard.current.downArrowKey.isPressed)
-            {
-                input.y -= 1f;
-            }
+            if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed)  input.x -= 1f;
+            if (Keyboard.current.dKey.isPressed || Keyboard.current.rightArrowKey.isPressed) input.x += 1f;
+            if (Keyboard.current.wKey.isPressed || Keyboard.current.upArrowKey.isPressed)   input.y += 1f;
+            if (Keyboard.current.sKey.isPressed || Keyboard.current.downArrowKey.isPressed) input.y -= 1f;
         }
 #endif
 
