@@ -110,12 +110,7 @@ public class PlayerMovement : MonoBehaviour
 
         float currentBottom = characterController.bounds.min.y;
         float deltaY = (hit.point.y - currentBottom) + groundSnapPadding;
-        Vector3 pos = transform.position;
-        pos.y += deltaY;
-
-        characterController.enabled = false;
-        transform.position = pos;
-        characterController.enabled = true;
+        characterController.Move(Vector3.up * deltaY);
         verticalVelocity = 0f;
     }
 
@@ -170,22 +165,22 @@ public class PlayerMovement : MonoBehaviour
     {
         Vector2 moveInput = GetMoveInput();
 
-        Vector3 input = new Vector3(moveInput.x, 0f, moveInput.y);
-        Vector3 inputNormalized = Vector3.ClampMagnitude(input, 1f);
+        float turnInput = moveInput.x;
+        float forwardInput = moveInput.y;
 
-        Vector3 moveDirection = inputNormalized;
-        if (cameraTransform != null)
+        if (Mathf.Abs(turnInput) > 0.0001f)
         {
-            Vector3 camForward = cameraTransform.forward;
-            camForward.y = 0f;
-            camForward.Normalize();
-
-            Vector3 camRight = cameraTransform.right;
-            camRight.y = 0f;
-            camRight.Normalize();
-
-            moveDirection = (camForward * inputNormalized.z + camRight * inputNormalized.x).normalized;
+            transform.Rotate(0f, turnInput * turnSpeed * Time.deltaTime, 0f, Space.World);
         }
+
+        Vector3 flatForward = transform.forward;
+        flatForward.y = 0f;
+        if (flatForward.sqrMagnitude > 0.0001f)
+        {
+            flatForward.Normalize();
+        }
+
+        Vector3 moveDirection = flatForward * forwardInput;
 
         if (characterController.isGrounded && verticalVelocity < 0f)
         {
@@ -197,16 +192,6 @@ public class PlayerMovement : MonoBehaviour
         Vector3 horizontalVelocity = moveDirection * moveSpeed;
         Vector3 velocity = horizontalVelocity + Vector3.up * verticalVelocity;
         characterController.Move(velocity * Time.deltaTime);
-
-        if (moveDirection.sqrMagnitude > 0.0001f)
-        {
-            Quaternion targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
-            transform.rotation = Quaternion.RotateTowards(
-                transform.rotation,
-                targetRotation,
-                turnSpeed * Time.deltaTime
-            );
-        }
     }
 
     private Vector2 GetMoveInput()

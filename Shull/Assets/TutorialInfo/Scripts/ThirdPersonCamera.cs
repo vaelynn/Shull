@@ -8,8 +8,7 @@ public class ThirdPersonCamera : MonoBehaviour
     [SerializeField] private Transform target;
     [SerializeField] private float followSmoothTime = 0.1f;
     [SerializeField] private float lookAtHeight = 1.4f;
-    [SerializeField] private float distance = 4f;
-    [SerializeField] private float height = 2f;
+    [SerializeField] private float orbitRadius = 6f;
     [SerializeField] private float pitch = 20f;
     [SerializeField] private float minPitch = -10f;
     [SerializeField] private float maxPitch = 80f;
@@ -32,7 +31,32 @@ public class ThirdPersonCamera : MonoBehaviour
             }
         }
 
-        yaw = transform.eulerAngles.y;
+        if (target != null)
+        {
+            Vector3 offset = transform.position - target.position;
+            float planar = new Vector2(offset.x, offset.z).magnitude;
+            if (offset.sqrMagnitude > 0.0001f)
+            {
+                orbitRadius = offset.magnitude;
+            }
+
+            if (planar > 0.0001f)
+            {
+                yaw = Mathf.Atan2(offset.x, offset.z) * Mathf.Rad2Deg;
+                pitch = Mathf.Atan2(offset.y, planar) * Mathf.Rad2Deg;
+                pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+            }
+            else
+            {
+                yaw = transform.eulerAngles.y;
+                pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+            }
+        }
+        else
+        {
+            yaw = transform.eulerAngles.y;
+            pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+        }
     }
 
     private void LateUpdate()
@@ -139,9 +163,17 @@ public class ThirdPersonCamera : MonoBehaviour
 
     private Vector3 GetDesiredPosition()
     {
-        Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
-        Vector3 offset = rotation * (Vector3.back * distance) + Vector3.up * height;
-        return target.position + offset;
+        float yawRad = yaw * Mathf.Deg2Rad;
+        float pitchRad = pitch * Mathf.Deg2Rad;
+        float cosPitch = Mathf.Cos(pitchRad);
+
+        Vector3 direction = new Vector3(
+            Mathf.Sin(yawRad) * cosPitch,
+            Mathf.Sin(pitchRad),
+            Mathf.Cos(yawRad) * cosPitch
+        );
+
+        return target.position + direction * orbitRadius;
     }
 
     public void SetTarget(Transform newTarget)
