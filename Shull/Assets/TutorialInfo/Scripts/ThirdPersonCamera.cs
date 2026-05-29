@@ -19,6 +19,12 @@ public class ThirdPersonCamera : MonoBehaviour
     private float yaw;
     private bool isRotating;
     private Vector3 lastMousePosition;
+    private Vector3 followOffsetWorld;
+
+    private void Awake()
+    {
+        DetachFromParent();
+    }
 
     private void Start()
     {
@@ -31,36 +37,12 @@ public class ThirdPersonCamera : MonoBehaviour
             }
         }
 
-        if (target != null)
-        {
-            Vector3 offset = transform.position - target.position;
-            float planar = new Vector2(offset.x, offset.z).magnitude;
-            if (offset.sqrMagnitude > 0.0001f)
-            {
-                orbitRadius = offset.magnitude;
-            }
-
-            if (planar > 0.0001f)
-            {
-                yaw = Mathf.Atan2(offset.x, offset.z) * Mathf.Rad2Deg;
-                pitch = Mathf.Atan2(offset.y, planar) * Mathf.Rad2Deg;
-                pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
-            }
-            else
-            {
-                yaw = transform.eulerAngles.y;
-                pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
-            }
-        }
-        else
-        {
-            yaw = transform.eulerAngles.y;
-            pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
-        }
+        RebuildFollowState();
     }
 
     private void LateUpdate()
     {
+        DetachFromParent();
         if (target == null)
         {
             return;
@@ -68,7 +50,7 @@ public class ThirdPersonCamera : MonoBehaviour
 
         UpdateRotation();
 
-        Vector3 desiredPosition = GetDesiredPosition();
+        Vector3 desiredPosition = isRotating ? GetDesiredOrbitPosition() : GetDesiredFollowPosition();
         transform.position = Vector3.SmoothDamp(
             transform.position,
             desiredPosition,
@@ -76,8 +58,21 @@ public class ThirdPersonCamera : MonoBehaviour
             followSmoothTime
         );
 
-        Vector3 lookPoint = target.position + Vector3.up * lookAtHeight;
-        transform.LookAt(lookPoint);
+        if (isRotating)
+        {
+            Vector3 lookPoint = target.position + Vector3.up * lookAtHeight;
+            transform.LookAt(lookPoint);
+        }
+    }
+
+    private void DetachFromParent()
+    {
+        if (transform.parent == null)
+        {
+            return;
+        }
+
+        transform.SetParent(null, true);
     }
 
     private void UpdateRotation()
@@ -131,6 +126,8 @@ public class ThirdPersonCamera : MonoBehaviour
         yaw += delta.x * rotateSensitivity;
         pitch -= delta.y * rotateSensitivity;
         pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+
+        followOffsetWorld = GetOrbitOffset();
     }
 
     private Vector3 GetMousePosition()
@@ -161,7 +158,17 @@ public class ThirdPersonCamera : MonoBehaviour
         return new Vector2(delta.x, delta.y);
     }
 
-    private Vector3 GetDesiredPosition()
+    private Vector3 GetDesiredOrbitPosition()
+    {
+        return target.position + GetOrbitOffset();
+    }
+
+    private Vector3 GetDesiredFollowPosition()
+    {
+        return target.position + followOffsetWorld;
+    }
+
+    private Vector3 GetOrbitOffset()
     {
         float yawRad = yaw * Mathf.Deg2Rad;
         float pitchRad = pitch * Mathf.Deg2Rad;
@@ -173,11 +180,42 @@ public class ThirdPersonCamera : MonoBehaviour
             Mathf.Cos(yawRad) * cosPitch
         );
 
-        return target.position + direction * orbitRadius;
+        return direction * orbitRadius;
     }
 
     public void SetTarget(Transform newTarget)
     {
         target = newTarget;
+        RebuildFollowState();
+    }
+
+    private void RebuildFollowState()
+    {
+        if (target == null)
+        {
+            yaw = transform.eulerAngles.y;
+            pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+            followOffsetWorld = Vector3.zero;
+            return;
+        }
+
+        followOffsetWorld = transform.position - target.position;
+        float planar = new Vector2(followOffsetWorld.x, followOffsetWorld.z).magnitude;
+        if (followOffsetWorld.sqrMagnitude > 0.0001f)
+        {
+            orbitRadius = followOffsetWorld.magnitude;
+        }
+
+        if (planar > 0.0001f)
+        {
+            yaw = Mathf.Atan2(followOffsetWorld.x, followOffsetWorld.z) * Mathf.Rad2Deg;
+            pitch = Mathf.Atan2(followOffsetWorld.y, planar) * Mathf.Rad2Deg;
+            pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+        }
+        else
+        {
+            yaw = transform.eulerAngles.y;
+            pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+        }
     }
 }
