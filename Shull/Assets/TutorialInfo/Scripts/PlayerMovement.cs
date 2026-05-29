@@ -131,6 +131,15 @@ public class PlayerMovement : MonoBehaviour
         bool leftHeld = moveInput.x < -0.1f;
         bool rightHeld = moveInput.x > 0.1f;
 
+        if (moveInput.y > 0.1f)
+        {
+            SetSnapTarget(0f);
+        }
+        else if (moveInput.y < -0.1f)
+        {
+            SetSnapTarget(180f);
+        }
+
         if (leftHeld && !prevLeftHeld)
         {
             SetSnapTarget(targetYaw - 90f);
@@ -152,7 +161,13 @@ public class PlayerMovement : MonoBehaviour
         prevLeftHeld = leftHeld;
         prevRightHeld = rightHeld;
 
-        Vector3 flatForward = transform.TransformDirection(localMoveForwardAxis);
+        Vector3 localAxis = localMoveForwardAxis;
+        if (localAxis.sqrMagnitude < 0.0001f)
+        {
+            localAxis = Vector3.forward;
+        }
+
+        Vector3 flatForward = transform.TransformDirection(localAxis);
         flatForward.y = 0f;
         if (flatForward.sqrMagnitude > 0.0001f)
         {
